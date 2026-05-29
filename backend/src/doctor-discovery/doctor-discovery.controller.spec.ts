@@ -9,7 +9,7 @@ import { DoctorDiscoveryService } from './doctor-discovery.service';
 
 describe('DoctorDiscoveryController', () => {
   let controller: DoctorDiscoveryController;
-  const mockService = { searchDoctors: jest.fn() };
+  const mockService = { searchDoctors: jest.fn(), recommendDoctors: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,5 +33,17 @@ describe('DoctorDiscoveryController', () => {
     const res = await controller.search({ search: 'a' } as any);
     expect(mockService.searchDoctors).toHaveBeenCalledWith({ search: 'a' });
     expect(res).toEqual(['d1']);
+  });
+
+  it('delegates recommend to service', async () => {
+    (mockService.recommendDoctors as jest.Mock).mockResolvedValue([
+      { id: 'd1', recommendation: { confidence: 0.95 } },
+      { id: 'd2', recommendation: { confidence: 0.8 } },
+    ]);
+
+    const res = await controller.recommend({ text: 'chest pain' } as any);
+
+    expect(mockService.recommendDoctors).toHaveBeenCalledWith('chest pain');
+    expect(res).toHaveLength(2);
   });
 });
