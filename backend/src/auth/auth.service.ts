@@ -145,4 +145,55 @@ export class AuthService {
       role: account.role,
     };
   }
+
+  // ------------------------
+  // GET CURRENT USER
+  // ------------------------
+  async getMe(accountId: string) {
+    const account = await this.prisma.account.findUnique({
+      where: { id: accountId },
+    });
+
+    if (!account) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (account.role === 'PATIENT') {
+      const profile = await this.prisma.patientProfile.findUnique({
+        where: { accountId },
+        include: {
+          medicalHistory: true,
+        },
+      });
+
+      return {
+        id: account.id,
+        email: account.email,
+        role: account.role,
+        profile,
+      };
+    }
+
+    if (account.role === 'DOCTOR') {
+      const profile = await this.prisma.doctorProfile.findUnique({
+        where: { accountId },
+        include: {
+          specializations: true,
+        },
+      });
+
+      return {
+        id: account.id,
+        email: account.email,
+        role: account.role,
+        profile,
+      };
+    }
+
+    return {
+      id: account.id,
+      email: account.email,
+      role: account.role,
+    };
+  }
 }
