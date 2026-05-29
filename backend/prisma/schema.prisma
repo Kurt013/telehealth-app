@@ -128,8 +128,6 @@ model DoctorSchedule {
   doctorId String
   doctor   DoctorProfile @relation(fields: [doctorId], references: [id])
 
-  date DateTime
-
   startTime DateTime
   endTime   DateTime
 
@@ -139,7 +137,7 @@ model DoctorSchedule {
 
   createdAt DateTime @default(now())
 
-  @@index([doctorId, date])
+  @@index([doctorId])
 }
 
 model Appointment {
