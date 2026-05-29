@@ -50,16 +50,33 @@ export class AuthService {
       'PATIENT',
     );
 
+    // Filter out empty conditions from the medical history array
+    const conditions = dto.medicalHistory
+      ? dto.medicalHistory.filter((c) => c && c.trim())
+      : [];
+
     return this.prisma.patientProfile.create({
       data: {
         accountId: account.id,
         firstName: dto.firstName,
+        middleName: dto.middleName,
         lastName: dto.lastName,
         birthday: new Date(dto.birthday),
-        weight: dto.weight,
-        height: dto.height,
+        weight: dto.weight ?? null,
+        height: dto.height ?? null,
+        profilePicture: dto.profilePicture,
         phone: dto.phone,
         address: dto.address,
+        emergencyName: dto.emergencyName,
+        emergencyPhone: dto.emergencyPhone,
+        medicalHistory: conditions.length
+          ? {
+              create: conditions.map((condition) => ({ condition })),
+            }
+          : undefined,
+      },
+      include: {
+        medicalHistory: true,
       },
     });
   }
@@ -86,11 +103,16 @@ export class AuthService {
       data: {
         accountId: account.id,
         firstName: dto.firstName,
+        middleName: dto.middleName,
         lastName: dto.lastName,
+        profilePicture: dto.profilePicture,
         bio: dto.bio,
         specializations: specializationsCreate.length
           ? { create: specializationsCreate }
           : undefined,
+      },
+      include: {
+        specializations: true,
       },
     });
   }

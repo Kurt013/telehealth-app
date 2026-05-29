@@ -17,8 +17,16 @@ export class RegisterDoctorDto {
   @IsString()
   firstName!: string;
 
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
   @IsString()
   lastName!: string;
+
+  @IsOptional()
+  @IsString()
+  profilePicture?: string;
 
   @IsOptional()
   @IsString()

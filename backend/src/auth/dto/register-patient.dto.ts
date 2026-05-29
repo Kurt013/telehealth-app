@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsOptional,
   IsNumber,
+  IsArray,
 } from 'class-validator';
 
 export class RegisterPatientDto {
@@ -17,6 +18,10 @@ export class RegisterPatientDto {
 
   @IsString()
   firstName!: string;
+
+  @IsOptional()
+  @IsString()
+  middleName?: string;
 
   @IsString()
   lastName!: string;
@@ -34,9 +39,26 @@ export class RegisterPatientDto {
 
   @IsOptional()
   @IsString()
+  profilePicture?: string;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyName?: string;
+
+  @IsOptional()
+  @IsString()
+  emergencyPhone?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  medicalHistory?: string[];
 }
