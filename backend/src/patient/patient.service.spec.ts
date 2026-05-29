@@ -1,0 +1,44 @@
+// Prevent importing the real Prisma client during tests by mocking PrismaService
+jest.mock('../prisma/prisma.service', () => ({
+  PrismaService: class {},
+}));
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { PatientService } from './patient.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+describe('PatientService', () => {
+  let service: PatientService;
+  const prismaMock: any = {
+    patientProfile: { findUnique: jest.fn() },
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PatientService,
+        { provide: PrismaService, useValue: prismaMock },
+      ],
+    }).compile();
+
+    service = module.get<PatientService>(PatientService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('finds patient by id', async () => {
+    prismaMock.patientProfile.findUnique.mockResolvedValue({
+      id: 'p1',
+      firstName: 'A',
+    });
+    const out = await service.findPatientById('p1');
+    expect(prismaMock.patientProfile.findUnique).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+    });
+    expect(out).toEqual({ id: 'p1', firstName: 'A' });
+  });
+});
