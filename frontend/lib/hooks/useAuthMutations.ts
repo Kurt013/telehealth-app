@@ -60,7 +60,12 @@ export const useRegisterPatientMutation = () => {
     mutationFn: async (
       data: PatientRegisterInput & { profileFile?: File | null },
     ) => {
-      const { profileFile, medicalHistory, ...registrationData } = data;
+      const {
+        profileFile,
+        medicalHistory,
+        confirmPassword,
+        ...registrationData
+      } = data;
 
       let profilePictureUrl: string | undefined;
 
@@ -108,7 +113,10 @@ export const useRegisterDoctorMutation = () => {
   const router = useRouter();
 
   return useMutation<unknown, unknown, DoctorRegisterInput>({
-    mutationFn: (data: DoctorRegisterInput) => registerDoctor(data),
+    mutationFn: (data: DoctorRegisterInput) => {
+      const { confirmPassword, ...registrationData } = data;
+      return registerDoctor(registrationData);
+    },
 
     onSuccess: () => {
       toast.success("Registration successful! Please log in.");

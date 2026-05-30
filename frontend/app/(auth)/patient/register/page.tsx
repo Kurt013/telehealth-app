@@ -10,18 +10,28 @@ import {
 } from "@/lib/schemas/patient";
 import { useRegisterPatientMutation } from "@/lib/hooks/useAuthMutations";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import {
+  Cake,
+  HeartPulse,
+  ImageUp,
+  Loader2,
+  LockKeyhole,
+  MapPin,
+  Phone,
+  Ruler,
+  Scale,
+  ShieldAlert,
+  UserRound,
+} from "lucide-react";
 
 export default function PatientRegisterPage() {
   const registerMutation = useRegisterPatientMutation();
   const [profileFile, setProfileFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
   } = useForm<PatientRegisterInput>({
     resolver: zodResolver(patientRegisterSchema),
   });
@@ -30,7 +40,6 @@ export default function PatientRegisterPage() {
     const file = e.target.files?.[0];
     if (file) {
       setProfileFile(file);
-      setUploadProgress(100);
     }
   };
 
@@ -45,7 +54,7 @@ export default function PatientRegisterPage() {
     errors[field]?.message;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4">
+    <div className="min-h-screen bg-linear-to-b from-blue-50 to-white py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* Header */}
@@ -67,7 +76,8 @@ export default function PatientRegisterPage() {
           >
             {/* Identity Details */}
             <fieldset className="border-t pt-6">
-              <legend className="flex items-center text-sm font-semibold text-blue-600 mb-4">
+              <legend className="mb-4 flex items-center text-sm font-semibold text-blue-600">
+                <UserRound className="mr-2 h-4 w-4" />
                 IDENTITY DETAILS
               </legend>
 
@@ -135,7 +145,8 @@ export default function PatientRegisterPage() {
 
                 {/* Date of Birth */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Cake className="h-4 w-4" />
                     Date of Birth
                   </label>
                   <input
@@ -156,7 +167,8 @@ export default function PatientRegisterPage() {
 
                 {/* Profile Picture */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <ImageUp className="h-4 w-4" />
                     Profile Picture (Optional)
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -191,8 +203,8 @@ export default function PatientRegisterPage() {
 
             {/* Contact Information */}
             <fieldset className="border-t pt-6">
-              <legend className="flex items-center text-sm font-semibold text-blue-600 mb-4">
-                <span className="text-lg mr-2">📞</span>
+              <legend className="mb-4 flex items-center text-sm font-semibold text-blue-600">
+                <Phone className="mr-2 h-4 w-4" />
                 CONTACT INFORMATION
               </legend>
 
@@ -237,8 +249,8 @@ export default function PatientRegisterPage() {
 
             {/* Health Information */}
             <fieldset className="border-t pt-6">
-              <legend className="flex items-center text-sm font-semibold text-blue-600 mb-4">
-                <span className="text-lg mr-2">⚕️</span>
+              <legend className="mb-4 flex items-center text-sm font-semibold text-blue-600">
+                <HeartPulse className="mr-2 h-4 w-4" />
                 HEALTH INFORMATION
               </legend>
 
@@ -246,7 +258,8 @@ export default function PatientRegisterPage() {
                 {/* Weight and Height */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <Scale className="h-4 w-4" />
                       Weight (kg)
                     </label>
                     <input
@@ -263,7 +276,8 @@ export default function PatientRegisterPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <Ruler className="h-4 w-4" />
                       Height (cm)
                     </label>
                     <input
@@ -296,7 +310,8 @@ export default function PatientRegisterPage() {
 
                 {/* Address */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <MapPin className="h-4 w-4" />
                     Address (Optional)
                   </label>
                   <input
@@ -311,8 +326,8 @@ export default function PatientRegisterPage() {
 
             {/* Emergency Contact */}
             <fieldset className="border-t pt-6">
-              <legend className="flex items-center text-sm font-semibold text-blue-600 mb-4">
-                <span className="text-lg mr-2">🚨</span>
+              <legend className="mb-4 flex items-center text-sm font-semibold text-blue-600">
+                <ShieldAlert className="mr-2 h-4 w-4" />
                 EMERGENCY CONTACT (OPTIONAL)
               </legend>
 
@@ -344,8 +359,8 @@ export default function PatientRegisterPage() {
 
             {/* Authentication */}
             <fieldset className="border-t pt-6">
-              <legend className="flex items-center text-sm font-semibold text-blue-600 mb-4">
-                <span className="text-lg mr-2">🔐</span>
+              <legend className="mb-4 flex items-center text-sm font-semibold text-blue-600">
+                <LockKeyhole className="mr-2 h-4 w-4" />
                 AUTHENTICATION
               </legend>
 
@@ -367,6 +382,26 @@ export default function PatientRegisterPage() {
                   {getFieldError("password") && (
                     <p className="text-red-600 text-sm mt-1">
                       {getFieldError("password")}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      getFieldError("confirmPassword")
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    }`}
+                    {...register("confirmPassword")}
+                  />
+                  {getFieldError("confirmPassword") && (
+                    <p className="mt-1 text-sm text-red-600">
+                      {getFieldError("confirmPassword")}
                     </p>
                   )}
                 </div>
