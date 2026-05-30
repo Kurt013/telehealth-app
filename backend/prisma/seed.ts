@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
@@ -19,6 +20,27 @@ const setTime = (base: Date, hour: number) => {
   const d = new Date(base);
   d.setHours(hour, 0, 0, 0);
   return d;
+};
+
+const createMeetCode = () => {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+  const randomChars = (length: number) =>
+    Array.from(
+      { length },
+      () => alphabet[Math.floor(Math.random() * alphabet.length)],
+    ).join('');
+
+  return `${randomChars(3)}-${randomChars(4)}-${randomChars(3)}`;
+};
+
+const createDummyMeetData = () => {
+  const meetingId = createMeetCode();
+
+  return {
+    meetingId,
+    meetingLink: `https://meet.google.com/${meetingId}`,
+    calendarEventId: `event-${randomUUID()}`,
+  };
 };
 
 async function main() {
@@ -125,6 +147,15 @@ async function main() {
   });
 
   console.log('✅ Patients created');
+
+  const patientProfiles = await Promise.all([
+    prisma.patientProfile.findUnique({
+      where: { accountId: patientAccount1.id },
+    }),
+    prisma.patientProfile.findUnique({
+      where: { accountId: patientAccount2.id },
+    }),
+  ]);
 
   // ----------------------
   // DOCTORS
@@ -261,25 +292,81 @@ async function main() {
     { doctorIndex: 9, dayOffset: 2, startHour: 10, endHour: 11 },
   ];
 
-  await prisma.doctorSchedule.createMany({
-    data: scheduleSeedData.map((schedule) => {
-      const baseDate = new Date(today);
-      baseDate.setDate(baseDate.getDate() + schedule.dayOffset);
+  const createdSchedules = [] as Array<{
+    id: string;
+    doctorId: string;
+    startTime: Date;
+    endTime: Date;
+  }>;
 
-      return {
+  for (const schedule of scheduleSeedData) {
+    const baseDate = new Date(today);
+    baseDate.setDate(baseDate.getDate() + schedule.dayOffset);
+
+    const createdSchedule = await prisma.doctorSchedule.create({
+      data: {
         doctorId: doctorProfiles[schedule.doctorIndex]!.id,
         startTime: setTime(baseDate, schedule.startHour),
         endTime: setTime(baseDate, schedule.endHour),
-      };
-    }),
-  });
+      },
+    });
+
+    createdSchedules.push(createdSchedule);
+  }
 
   console.log('✅ Schedules created');
+
+  // ----------------------
+  // APPOINTMENTS + CONSULTATION SESSIONS
+  // ----------------------
+  const bookingSeedData = [
+    { scheduleIndex: 0, reason: 'Chest discomfort and follow-up check' },
+    { scheduleIndex: 2, reason: 'Persistent rash evaluation' },
+    { scheduleIndex: 4, reason: 'Breathing concerns and inhaler review' },
+  ];
+
+  const seededAppointments = [] as Array<{ id: string; scheduleId: string }>;
+
+  for (const booking of bookingSeedData) {
+    const schedule = createdSchedules[booking.scheduleIndex]!;
+    const doctorProfile =
+      doctorProfiles[scheduleSeedData[booking.scheduleIndex]!.doctorIndex]!;
+    const patientProfile = patientProfiles[0];
+
+    if (!doctorProfile || !patientProfile) {
+      continue;
+    }
+
+    const meetData = createDummyMeetData();
+
+    const appointment = await prisma.appointment.create({
+      data: {
+        patientId: patientProfile.id,
+        doctorId: doctorProfile.id,
+        scheduleId: schedule.id,
+        reason: booking.reason,
+        status: 'CONFIRMED',
+        consultationSession: {
+          create: {
+            meetingLink: meetData.meetingLink,
+            meetingId: meetData.meetingId,
+            calendarEventId: meetData.calendarEventId,
+            status: 'SCHEDULED',
+          },
+        },
+      },
+    });
+
+    seededAppointments.push({ id: appointment.id, scheduleId: schedule.id });
+  }
+
+  console.log('✅ Patient bookings created');
 
   console.log('🎉 SEED COMPLETE');
   console.log({
     patients: [patientAccount1.id, patientAccount2.id],
     doctors: doctorAccounts.map((doctorAccount) => doctorAccount.id),
+    appointments: seededAppointments,
   });
 }
 
