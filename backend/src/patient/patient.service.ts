@@ -2,39 +2,44 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdatePatientProfileDto } from './dto/update-patient-profile.dto';
 
+const patientInclude = {
+  account: true,
+  medicalHistory: true,
+  appointments: {
+    include: {
+      doctor: {
+        include: {
+          account: true,
+          specializations: { include: { specialization: true } },
+        },
+      },
+      schedule: true,
+      consultationSession: true,
+    },
+  },
+};
+
 @Injectable()
 export class PatientService {
   constructor(private prisma: PrismaService) {}
 
   async findAllPatients() {
     return this.prisma.patientProfile.findMany({
-      include: {
-        account: true,
-        medicalHistory: true,
-        appointments: true,
-      },
+      include: patientInclude,
     });
   }
 
   async findPatientById(id: string) {
     return this.prisma.patientProfile.findUnique({
       where: { id },
-      include: {
-        account: true,
-        medicalHistory: true,
-        appointments: true,
-      },
+      include: patientInclude,
     });
   }
 
   async findPatientByAccountId(accountId: string) {
     return this.prisma.patientProfile.findUnique({
       where: { accountId },
-      include: {
-        account: true,
-        medicalHistory: true,
-        appointments: true,
-      },
+      include: patientInclude,
     });
   }
 
@@ -88,11 +93,7 @@ export class PatientService {
 
       return txAny.patientProfile.findUnique({
         where: { id },
-        include: {
-          account: true,
-          medicalHistory: true,
-          appointments: true,
-        },
+        include: patientInclude,
       });
     });
   }

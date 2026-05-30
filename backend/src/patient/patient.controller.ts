@@ -15,6 +15,21 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PatientController {
   constructor(private readonly patientService: PatientService) {}
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  getMe(@Request() req: any) {
+    return this.patientService.findPatientByAccountId(req.user.userId);
+  }
+
+  @Patch('me/profile')
+  @UseGuards(JwtAuthGuard)
+  updateMyProfile(@Request() req: any, @Body() body: UpdatePatientProfileDto) {
+    return this.patientService.updatePatientProfileByAccountId(
+      req.user.userId,
+      body,
+    );
+  }
+
   @Get()
   getAllPatients() {
     return this.patientService.findAllPatients();
@@ -31,20 +46,5 @@ export class PatientController {
     @Body() body: UpdatePatientProfileDto,
   ) {
     return this.patientService.updatePatientProfile(id, body);
-  }
-
-  @Get('me')
-  @UseGuards(JwtAuthGuard)
-  getMe(@Request() req: any) {
-    return this.patientService.findPatientByAccountId(req.user.userId);
-  }
-
-  @Patch('me/profile')
-  @UseGuards(JwtAuthGuard)
-  updateMyProfile(@Request() req: any, @Body() body: UpdatePatientProfileDto) {
-    return this.patientService.updatePatientProfileByAccountId(
-      req.user.userId,
-      body,
-    );
   }
 }

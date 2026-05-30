@@ -41,7 +41,18 @@ describe('PatientService', () => {
       include: {
         account: true,
         medicalHistory: true,
-        appointments: true,
+        appointments: {
+          include: {
+            doctor: {
+              include: {
+                account: true,
+                specializations: { include: { specialization: true } },
+              },
+            },
+            schedule: true,
+            consultationSession: true,
+          },
+        },
       },
     });
     expect(out).toEqual({ id: 'p1', firstName: 'A' });
@@ -59,7 +70,18 @@ describe('PatientService', () => {
       include: {
         account: true,
         medicalHistory: true,
-        appointments: true,
+        appointments: {
+          include: {
+            doctor: {
+              include: {
+                account: true,
+                specializations: { include: { specialization: true } },
+              },
+            },
+            schedule: true,
+            consultationSession: true,
+          },
+        },
       },
     });
     expect(out).toEqual([
