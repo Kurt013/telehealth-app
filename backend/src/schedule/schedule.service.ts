@@ -1,5 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  CreateDoctorScheduleDto,
+  UpdateDoctorScheduleDto,
+} from './dto/manage-schedule.dto';
 
 @Injectable()
 export class ScheduleService {
@@ -26,11 +34,188 @@ export class ScheduleService {
     return date;
   }
 
-  async getAvailableSchedules(
+  private async ensureNoOverlap(
     doctorId: string,
+    startTime: Date,
+    endTime: Date,
+    excludeScheduleId?: string,
+  ) {
+    const overlapping = await this.prisma.doctorSchedule.findFirst({
+      where: {
+        doctorId,
+        ...(excludeScheduleId ? { id: { not: excludeScheduleId } } : {}),
+        AND: [
+          {
+            startTime: {
+              lt: endTime,
+            },
+          },
+          {
+            endTime: {
+              gt: startTime,
+            },
+          },
+        ],
+      },
+    });
+
+    if (overlapping) {
+      throw new BadRequestException(
+        'Schedule overlaps with an existing availability slot',
+      );
+    }
+  }
+
+  async createDoctorSchedule(doctorId: string, data: CreateDoctorScheduleDto) {
+    const startTime = this.normalize(data.startTime);
+    const endTime = this.normalize(data.endTime);
+
+    if (startTime >= endTime) {
+      throw new BadRequestException('Schedule endTime must be after startTime');
+    }
+
+    await this.ensureNoOverlap(doctorId, startTime, endTime);
+
+    return this.prisma.doctorSchedule.create({
+      data: {
+        doctorId,
+        startTime,
+        endTime,
+      },
+    });
+  }
+
+  async createDoctorScheduleByAccountId(
+    accountId: string,
+    data: CreateDoctorScheduleDto,
+  ) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.createDoctorSchedule(doctor.id, data);
+  }
+
+  async updateDoctorSchedule(
+    doctorId: string,
+    scheduleId: string,
+    data: UpdateDoctorScheduleDto,
+  ) {
+    const schedule = await this.prisma.doctorSchedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule || schedule.doctorId !== doctorId) {
+      throw new NotFoundException('Schedule not found');
+    }
+
+    const bookedAppointment = await this.prisma.appointment.findFirst({
+      where: {
+        scheduleId,
+        status: { not: 'CANCELLED' },
+      },
+    });
+
+    if (bookedAppointment) {
+      throw new BadRequestException('Booked schedules cannot be edited');
+    }
+
+    const startTime = data.startTime
+      ? this.normalize(data.startTime)
+      : schedule.startTime;
+    const endTime = data.endTime
+      ? this.normalize(data.endTime)
+      : schedule.endTime;
+
+    if (startTime >= endTime) {
+      throw new BadRequestException('Schedule endTime must be after startTime');
+    }
+
+    await this.ensureNoOverlap(doctorId, startTime, endTime, scheduleId);
+
+    return this.prisma.doctorSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        startTime,
+        endTime,
+      },
+    });
+  }
+
+  async updateDoctorScheduleByAccountId(
+    accountId: string,
+    scheduleId: string,
+    data: UpdateDoctorScheduleDto,
+  ) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.updateDoctorSchedule(doctor.id, scheduleId, data);
+  }
+
+  async deleteDoctorSchedule(doctorId: string, scheduleId: string) {
+    const schedule = await this.prisma.doctorSchedule.findUnique({
+      where: { id: scheduleId },
+    });
+
+    if (!schedule || schedule.doctorId !== doctorId) {
+      throw new NotFoundException('Schedule not found');
+    }
+
+    const bookedAppointment = await this.prisma.appointment.findFirst({
+      where: {
+        scheduleId,
+        status: { not: 'CANCELLED' },
+      },
+    });
+
+    if (bookedAppointment) {
+      throw new BadRequestException('Booked schedules cannot be deleted');
+    }
+
+    return this.prisma.doctorSchedule.delete({
+      where: { id: scheduleId },
+    });
+  }
+
+  async deleteDoctorScheduleByAccountId(accountId: string, scheduleId: string) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.deleteDoctorSchedule(doctor.id, scheduleId);
+  }
+
+  async getAvailableSchedulesByAccountId(
+    accountId: string,
     from?: string,
     to?: string,
   ) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.getAvailableSchedules(doctor.id, from, to);
+  }
+
+  async getAvailableSchedules(doctorId: string, from?: string, to?: string) {
     let start: Date | undefined;
     let end: Date | undefined;
 
@@ -44,7 +229,11 @@ export class ScheduleService {
 
     const where: any = {
       doctorId,
-      isBooked: false,
+      appointments: {
+        none: {
+          status: { not: 'CANCELLED' },
+        },
+      },
     };
 
     if (start || end) {
