@@ -35,7 +35,7 @@ export function NavUser({
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("userRole");
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   return (

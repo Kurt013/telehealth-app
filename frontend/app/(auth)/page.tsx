@@ -1,13 +1,21 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
+
+import {
+  Loader2,
+  Eye,
+  EyeOff,
+  User,
+  Stethoscope,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { loginSchema, type LoginInput } from "@/lib/schemas/base";
 import { useLoginMutation } from "@/lib/hooks/useAuthMutations";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -29,15 +37,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-lg p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">PulseCare</h1>
-            <p className="text-sm text-gray-500 tracking-wider">
-              SECURE ACCESS
-            </p>
-          </div>
 
-          {/* Welcome Message */}
+          {/* Header */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Welcome Back
@@ -47,7 +48,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Login Form */}
+          {/* Form */}
           <form
             onSubmit={handleSubmit(onSubmit)}
             method="POST"
@@ -79,6 +80,7 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
+
                 <Link
                   href="/forgot-password"
                   className="text-sm text-blue-600 hover:text-blue-700"
@@ -86,6 +88,7 @@ export default function LoginPage() {
                   Forgot Password?
                 </Link>
               </div>
+
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -95,14 +98,20 @@ export default function LoginPage() {
                   }`}
                   {...register("password")}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                 >
-                  {showPassword ? "🙈" : "👁️"}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
+
               {errors.password && (
                 <p className="text-red-600 text-sm mt-1">
                   {errors.password.message}
@@ -110,7 +119,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <Button
               type="submit"
               disabled={loginMutation.isPending}
@@ -131,7 +140,7 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
               <span className="px-2 bg-white text-gray-500">
@@ -140,47 +149,25 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Sign Up Options */}
+          {/* Sign up */}
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/patient/register"
               className="flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-medium transition-colors"
             >
-              <span className="mr-2">👤</span>
+              <User className="mr-2 h-4 w-4" />
               Sign up as Patient
             </Link>
+
             <Link
               href="/doctor/register"
               className="flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-medium transition-colors"
             >
-              <span className="mr-2">⚕️</span>
+              <Stethoscope className="mr-2 h-4 w-4" />
               Sign up as Doctor
             </Link>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-600 space-x-4">
-          <Link href="/privacy" className="hover:text-gray-900">
-            Privacy Policy
-          </Link>
-          <span>•</span>
-          <Link href="/terms" className="hover:text-gray-900">
-            Terms of Service
-          </Link>
-          <span>•</span>
-          <Link href="/help" className="hover:text-gray-900">
-            Help Center
-          </Link>
-          <span>•</span>
-          <Link href="/contact" className="hover:text-gray-900">
-            Contact Us
-          </Link>
-        </div>
-
-        {/* Copyright */}
-        <div className="mt-6 text-center text-xs text-gray-500">
-          © 2024 PulseCare Telehealth. All rights reserved.
         </div>
       </div>
     </div>

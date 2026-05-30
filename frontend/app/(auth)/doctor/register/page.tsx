@@ -377,7 +377,7 @@ export default function DoctorRegisterPage() {
                   </>
                 )}
               </Button>
-              <Link href="/login" className="flex-1">
+              <Link href="/" className="flex-1">
                 <Button
                   type="button"
                   variant="outline"

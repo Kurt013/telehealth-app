@@ -91,7 +91,7 @@ export const useRegisterPatientMutation = () => {
 
     onSuccess: () => {
       toast.success("Registration successful! Please log in.");
-      router.push("/login?registered=true");
+      router.push("/?registered=true");
     },
 
     onError: (error) => {
@@ -112,7 +112,7 @@ export const useRegisterDoctorMutation = () => {
 
     onSuccess: () => {
       toast.success("Registration successful! Please log in.");
-      router.push("/login?registered=true");
+      router.push("/?registered=true");
     },
 
     onError: (error) => {
