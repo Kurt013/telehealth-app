@@ -38,6 +38,11 @@ describe('PatientService', () => {
     const out = await service.findPatientById('p1');
     expect(prismaMock.patientProfile.findUnique).toHaveBeenCalledWith({
       where: { id: 'p1' },
+      include: {
+        account: true,
+        medicalHistory: true,
+        appointments: true,
+      },
     });
     expect(out).toEqual({ id: 'p1', firstName: 'A' });
   });
