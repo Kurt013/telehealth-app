@@ -248,77 +248,17 @@ async function main() {
   // SCHEDULES (CRITICAL FOR TESTING)
   // ----------------------
   const scheduleSeedData = [
-    {
-      doctorIndex: 0,
-      dayOffset: 0,
-      startHour: 9,
-      endHour: 10,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 0,
-      dayOffset: 0,
-      startHour: 10,
-      endHour: 11,
-      isBooked: true,
-    },
-    {
-      doctorIndex: 1,
-      dayOffset: 0,
-      startHour: 13,
-      endHour: 14,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 2,
-      dayOffset: 1,
-      startHour: 11,
-      endHour: 12,
-      isBooked: false,
-    },
-    { doctorIndex: 3, dayOffset: 0, startHour: 8, endHour: 9, isBooked: false },
-    {
-      doctorIndex: 4,
-      dayOffset: 1,
-      startHour: 14,
-      endHour: 15,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 5,
-      dayOffset: 0,
-      startHour: 15,
-      endHour: 16,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 6,
-      dayOffset: 2,
-      startHour: 9,
-      endHour: 10,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 7,
-      dayOffset: 1,
-      startHour: 9,
-      endHour: 10,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 8,
-      dayOffset: 0,
-      startHour: 16,
-      endHour: 17,
-      isBooked: false,
-    },
-    {
-      doctorIndex: 9,
-      dayOffset: 2,
-      startHour: 10,
-      endHour: 11,
-      isBooked: false,
-    },
+    { doctorIndex: 0, dayOffset: 0, startHour: 9, endHour: 10 },
+    { doctorIndex: 0, dayOffset: 0, startHour: 10, endHour: 11 },
+    { doctorIndex: 1, dayOffset: 0, startHour: 13, endHour: 14 },
+    { doctorIndex: 2, dayOffset: 1, startHour: 11, endHour: 12 },
+    { doctorIndex: 3, dayOffset: 0, startHour: 8, endHour: 9 },
+    { doctorIndex: 4, dayOffset: 1, startHour: 14, endHour: 15 },
+    { doctorIndex: 5, dayOffset: 0, startHour: 15, endHour: 16 },
+    { doctorIndex: 6, dayOffset: 2, startHour: 9, endHour: 10 },
+    { doctorIndex: 7, dayOffset: 1, startHour: 9, endHour: 10 },
+    { doctorIndex: 8, dayOffset: 0, startHour: 16, endHour: 17 },
+    { doctorIndex: 9, dayOffset: 2, startHour: 10, endHour: 11 },
   ];
 
   await prisma.doctorSchedule.createMany({
@@ -330,7 +270,6 @@ async function main() {
         doctorId: doctorProfiles[schedule.doctorIndex]!.id,
         startTime: setTime(baseDate, schedule.startHour),
         endTime: setTime(baseDate, schedule.endHour),
-        isBooked: schedule.isBooked,
       };
     }),
   });

@@ -20,6 +20,24 @@ enum AppointmentStatus {
   CANCELLED
 }
 
+enum ConsultationSessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  ENDED
+  CANCELLED
+}
+
+enum NotificationType {
+  APPOINTMENT_BOOKED
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_CANCELLED
+  SESSION_READY
+  SESSION_STARTED
+  SESSION_ENDED
+  NOTE_CREATED
+  PRESCRIPTION_CREATED
+}
+
 model Account {
   id String @id @default(uuid())
 
@@ -33,15 +51,16 @@ model Account {
   patientProfile PatientProfile?
   doctorProfile  DoctorProfile?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  notifications Notification[]
 }
 
 model PatientProfile {
   id String @id @default(uuid())
 
   accountId String  @unique
-  account   Account @relation(fields: [accountId], references: [id])
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   firstName  String
   middleName String?
@@ -64,15 +83,17 @@ model PatientProfile {
 
   appointments Appointment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  consultationNotes ConsultationNote[]
+  prescriptions     Prescription[]
 }
 
 model MedicalHistory {
   id String @id @default(uuid())
 
   patientId String
-  patient   PatientProfile @relation(fields: [patientId], references: [id])
+  patient   PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   condition String
 
@@ -83,7 +104,7 @@ model DoctorProfile {
   id String @id @default(uuid())
 
   accountId String  @unique
-  account   Account @relation(fields: [accountId], references: [id])
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   firstName  String
   middleName String?
@@ -99,8 +120,10 @@ model DoctorProfile {
 
   appointments Appointment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  consultationNotes ConsultationNote[]
+  prescriptions     Prescription[]
 }
 
 model Specialization {
@@ -115,9 +138,9 @@ model DoctorSpecialization {
   doctorId         String
   specializationId String
 
-  doctor DoctorProfile @relation(fields: [doctorId], references: [id])
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
-  specialization Specialization @relation(fields: [specializationId], references: [id])
+  specialization Specialization @relation(fields: [specializationId], references: [id], onDelete: Cascade)
 
   @@id([doctorId, specializationId])
 }
@@ -126,12 +149,10 @@ model DoctorSchedule {
   id String @id @default(uuid())
 
   doctorId String
-  doctor   DoctorProfile @relation(fields: [doctorId], references: [id])
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   startTime DateTime
   endTime   DateTime
-
-  isBooked Boolean @default(false)
 
   appointments Appointment[]
 
@@ -144,13 +165,13 @@ model Appointment {
   id String @id @default(uuid())
 
   patientId String
-  patient   PatientProfile @relation(fields: [patientId], references: [id])
+  patient   PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   doctorId String
-  doctor   DoctorProfile @relation(fields: [doctorId], references: [id])
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   scheduleId String
-  schedule   DoctorSchedule @relation(fields: [scheduleId], references: [id])
+  schedule   DoctorSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   reason String?
 
@@ -159,10 +180,89 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  googleMeetLink String?
-  googleMeetId   String?
+  consultationSession ConsultationSession?
+  consultationNote    ConsultationNote?
+  prescription        Prescription?
 
   @@index([patientId])
   @@index([doctorId])
   @@index([scheduleId])
+}
+
+model ConsultationSession {
+  id String @id @default(uuid())
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  meetingLink     String
+  meetingId       String?
+  calendarEventId String? @unique
+
+  status ConsultationSessionStatus @default(SCHEDULED)
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ConsultationNote {
+  id String @id @default(uuid())
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  summary         String
+  findings        String?
+  recommendations String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Prescription {
+  id String @id @default(uuid())
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  patientId String
+  patient   PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  diagnosis    String?
+  instructions String?
+  medications  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+
+  title    String
+  message  String
+  metadata Json?
+
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([accountId])
 }
