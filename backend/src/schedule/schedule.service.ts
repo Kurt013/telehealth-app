@@ -13,6 +13,60 @@ import {
 export class ScheduleService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async resolveDoctorId(doctorIdOrAccountId: string) {
+    const byDoctorId = await this.prisma.doctorProfile.findUnique({
+      where: { id: doctorIdOrAccountId },
+      select: { id: true },
+    });
+
+    if (byDoctorId) {
+      return byDoctorId.id;
+    }
+
+    const byAccountId = await this.prisma.doctorProfile.findUnique({
+      where: { accountId: doctorIdOrAccountId },
+      select: { id: true },
+    });
+
+    if (byAccountId) {
+      return byAccountId.id;
+    }
+
+    const account = await this.prisma.account.findUnique({
+      where: { id: doctorIdOrAccountId },
+      select: { id: true, role: true },
+    });
+
+    if (account?.role === 'DOCTOR') {
+      // Auto-create a minimal doctor profile for legacy accounts that have
+      // an Account with role DOCTOR but no DoctorProfile row yet. This keeps
+      // schedule creation and other doctor flows working for migrated data.
+      // Attempt to read the account email if available; fall back to a
+      // generic name if not present.
+      const accountWithEmail = await this.prisma.account.findUnique({
+        where: { id: account.id },
+        select: { email: true },
+      });
+
+      const emailLocal = accountWithEmail?.email
+        ? accountWithEmail.email.split('@')[0]
+        : 'doctor';
+
+      const created = await this.prisma.doctorProfile.create({
+        data: {
+          accountId: account.id,
+          firstName: String(emailLocal).slice(0, 50) || 'Doctor',
+          lastName: 'User',
+        },
+        select: { id: true },
+      });
+
+      return created.id;
+    }
+
+    throw new NotFoundException('Doctor profile not found');
+  }
+
   // normalize date/time input
   private normalize(input: string, baseDate = new Date()): Date {
     // full ISO datetime
@@ -67,6 +121,14 @@ export class ScheduleService {
   }
 
   async createDoctorSchedule(doctorId: string, data: CreateDoctorScheduleDto) {
+    const resolvedDoctorId = await this.resolveDoctorId(doctorId);
+    return this.createScheduleForDoctorId(resolvedDoctorId, data);
+  }
+
+  private async createScheduleForDoctorId(
+    resolvedDoctorId: string,
+    data: CreateDoctorScheduleDto,
+  ) {
     const startTime = this.normalize(data.startTime);
     const endTime = this.normalize(data.endTime);
 
@@ -74,11 +136,11 @@ export class ScheduleService {
       throw new BadRequestException('Schedule endTime must be after startTime');
     }
 
-    await this.ensureNoOverlap(doctorId, startTime, endTime);
+    await this.ensureNoOverlap(resolvedDoctorId, startTime, endTime);
 
     return this.prisma.doctorSchedule.create({
       data: {
-        doctorId,
+        doctorId: resolvedDoctorId,
         startTime,
         endTime,
       },
@@ -89,15 +151,9 @@ export class ScheduleService {
     accountId: string,
     data: CreateDoctorScheduleDto,
   ) {
-    const doctor = await this.prisma.doctorProfile.findUnique({
-      where: { accountId },
-    });
+    const resolvedDoctorId = await this.resolveDoctorId(accountId);
 
-    if (!doctor) {
-      throw new NotFoundException('Doctor profile not found');
-    }
-
-    return this.createDoctorSchedule(doctor.id, data);
+    return this.createScheduleForDoctorId(resolvedDoctorId, data);
   }
 
   async updateDoctorSchedule(
@@ -105,11 +161,12 @@ export class ScheduleService {
     scheduleId: string,
     data: UpdateDoctorScheduleDto,
   ) {
+    const resolvedDoctorId = await this.resolveDoctorId(doctorId);
     const schedule = await this.prisma.doctorSchedule.findUnique({
       where: { id: scheduleId },
     });
 
-    if (!schedule || schedule.doctorId !== doctorId) {
+    if (!schedule || schedule.doctorId !== resolvedDoctorId) {
       throw new NotFoundException('Schedule not found');
     }
 
@@ -135,7 +192,12 @@ export class ScheduleService {
       throw new BadRequestException('Schedule endTime must be after startTime');
     }
 
-    await this.ensureNoOverlap(doctorId, startTime, endTime, scheduleId);
+    await this.ensureNoOverlap(
+      resolvedDoctorId,
+      startTime,
+      endTime,
+      scheduleId,
+    );
 
     return this.prisma.doctorSchedule.update({
       where: { id: scheduleId },
@@ -151,23 +213,18 @@ export class ScheduleService {
     scheduleId: string,
     data: UpdateDoctorScheduleDto,
   ) {
-    const doctor = await this.prisma.doctorProfile.findUnique({
-      where: { accountId },
-    });
+    const resolvedDoctorId = await this.resolveDoctorId(accountId);
 
-    if (!doctor) {
-      throw new NotFoundException('Doctor profile not found');
-    }
-
-    return this.updateDoctorSchedule(doctor.id, scheduleId, data);
+    return this.updateDoctorSchedule(resolvedDoctorId, scheduleId, data);
   }
 
   async deleteDoctorSchedule(doctorId: string, scheduleId: string) {
+    const resolvedDoctorId = await this.resolveDoctorId(doctorId);
     const schedule = await this.prisma.doctorSchedule.findUnique({
       where: { id: scheduleId },
     });
 
-    if (!schedule || schedule.doctorId !== doctorId) {
+    if (!schedule || schedule.doctorId !== resolvedDoctorId) {
       throw new NotFoundException('Schedule not found');
     }
 
@@ -188,15 +245,9 @@ export class ScheduleService {
   }
 
   async deleteDoctorScheduleByAccountId(accountId: string, scheduleId: string) {
-    const doctor = await this.prisma.doctorProfile.findUnique({
-      where: { accountId },
-    });
+    const resolvedDoctorId = await this.resolveDoctorId(accountId);
 
-    if (!doctor) {
-      throw new NotFoundException('Doctor profile not found');
-    }
-
-    return this.deleteDoctorSchedule(doctor.id, scheduleId);
+    return this.deleteDoctorSchedule(resolvedDoctorId, scheduleId);
   }
 
   async getAvailableSchedulesByAccountId(
@@ -204,18 +255,13 @@ export class ScheduleService {
     from?: string,
     to?: string,
   ) {
-    const doctor = await this.prisma.doctorProfile.findUnique({
-      where: { accountId },
-    });
+    const resolvedDoctorId = await this.resolveDoctorId(accountId);
 
-    if (!doctor) {
-      throw new NotFoundException('Doctor profile not found');
-    }
-
-    return this.getAvailableSchedules(doctor.id, from, to);
+    return this.getAvailableSchedules(resolvedDoctorId, from, to);
   }
 
   async getAvailableSchedules(doctorId: string, from?: string, to?: string) {
+    const resolvedDoctorId = await this.resolveDoctorId(doctorId);
     let start: Date | undefined;
     let end: Date | undefined;
 
@@ -228,7 +274,7 @@ export class ScheduleService {
     }
 
     const where: any = {
-      doctorId,
+      doctorId: resolvedDoctorId,
       appointments: {
         none: {
           status: { not: 'CANCELLED' },
