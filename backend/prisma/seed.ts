@@ -360,6 +360,54 @@ async function main() {
     seededAppointments.push({ id: appointment.id, scheduleId: schedule.id });
   }
 
+  for (const appointment of seededAppointments) {
+    const fullAppointment = await prisma.appointment.findUnique({
+      where: { id: appointment.id },
+      include: {
+        patient: { include: { account: true } },
+        doctor: { include: { account: true } },
+        schedule: true,
+        consultationSession: true,
+      },
+    });
+
+    if (!fullAppointment) {
+      continue;
+    }
+
+    const appointmentTime = new Date(
+      fullAppointment.schedule.startTime,
+    ).toLocaleString();
+
+    await prisma.notification.createMany({
+      data: [
+        {
+          accountId: fullAppointment.patient.accountId,
+          type: 'APPOINTMENT_BOOKED',
+          title: 'Appointment booked',
+          message: `Your appointment is scheduled for ${appointmentTime}.`,
+          metadata: {
+            appointmentId: fullAppointment.id,
+            scheduleId: fullAppointment.scheduleId,
+            role: 'PATIENT',
+          },
+        },
+        {
+          accountId: fullAppointment.doctor.accountId,
+          type: 'SESSION_READY',
+          title: 'Consultation session ready',
+          message: `You have a confirmed appointment at ${appointmentTime}.`,
+          metadata: {
+            appointmentId: fullAppointment.id,
+            scheduleId: fullAppointment.scheduleId,
+            meetingLink: fullAppointment.consultationSession?.meetingLink,
+            role: 'DOCTOR',
+          },
+        },
+      ],
+    });
+  }
+
   console.log('✅ Patient bookings created');
 
   console.log('🎉 SEED COMPLETE');

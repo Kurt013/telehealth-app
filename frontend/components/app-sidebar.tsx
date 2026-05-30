@@ -99,7 +99,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={userData} accountUrl={accountUrl} />
+        <div className="space-y-2 p-2">
+          <NavUser user={userData} accountUrl={accountUrl} />
+        </div>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

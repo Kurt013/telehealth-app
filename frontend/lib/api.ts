@@ -2,6 +2,18 @@ export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 ).replace(/\/$/, ""); // Remove trailing slash
 
+export class ApiError extends Error {
+  status: number;
+  responseText: string;
+
+  constructor(status: number, responseText: string) {
+    super(responseText || `Request failed with status ${status}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.responseText = responseText;
+  }
+}
+
 type ApiBody = BodyInit | object | null | undefined;
 
 type ApiRequestOptions = Omit<RequestInit, "body"> & {
@@ -49,9 +61,7 @@ export async function apiRequest<TResponse>(
 
   if (!response.ok) {
     const errorMessage = await response.text();
-    throw new Error(
-      errorMessage || `Request failed with status ${response.status}`,
-    );
+    throw new ApiError(response.status, errorMessage);
   }
 
   return (await response.json()) as TResponse;
@@ -143,6 +153,58 @@ export interface DoctorDiscoveryItem {
   specializations?: DoctorDiscoverySpecialization[];
 }
 
+export interface DoctorScheduleItem {
+  id: string;
+  doctorId: string;
+  startTime: string;
+  endTime: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DoctorProfileItem {
+  id: string;
+  accountId: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  bio?: string | null;
+  profilePicture?: string | null;
+  schedules?: DoctorScheduleItem[];
+  account?: {
+    id: string;
+    email: string;
+    role: string;
+    isVerified: boolean;
+  };
+}
+
+export interface DoctorAppointmentItem {
+  id: string;
+  doctorId: string;
+  patientId: string;
+  scheduleId: string;
+  reason?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  patient?: {
+    firstName: string;
+    middleName?: string | null;
+    lastName: string;
+    profilePicture?: string | null;
+  };
+  schedule?: DoctorScheduleItem;
+  consultationSession?: {
+    meetingLink: string;
+    meetingId?: string | null;
+    calendarEventId?: string | null;
+    status: string;
+    startedAt?: string | null;
+    endedAt?: string | null;
+  } | null;
+}
+
 export interface FetchDoctorsParams {
   search?: string;
   specialization?: string;
@@ -153,6 +215,128 @@ export async function fetchDoctors(params: FetchDoctorsParams = {}) {
   return apiRequest<DoctorDiscoveryItem[]>("/doctors", {
     params,
   });
+}
+
+export async function fetchDoctorSchedules(
+  doctorId: string,
+  params: { date?: string } = {},
+) {
+  return apiRequest<DoctorScheduleItem[]>(`/doctors/${doctorId}/schedules`, {
+    params,
+  });
+}
+
+export interface CreateDoctorSchedulePayload {
+  startTime: string;
+  endTime: string;
+}
+
+export async function createDoctorSchedule(
+  token: string,
+  payload: CreateDoctorSchedulePayload,
+) {
+  return apiRequest<DoctorScheduleItem>("/doctors/me/schedules", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: payload,
+  });
+}
+
+export async function deleteDoctorSchedule(token: string, scheduleId: string) {
+  return apiRequest<Record<string, unknown>>(
+    `/doctors/me/schedules/${scheduleId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
+export async function fetchCurrentDoctor(token: string) {
+  return apiRequest<DoctorProfileItem>("/doctors/me", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export interface CurrentUserProfileItem {
+  id: string;
+  accountId?: string;
+  firstName?: string;
+  middleName?: string | null;
+  lastName?: string;
+  profilePicture?: string | null;
+  bio?: string | null;
+  specializations?: Array<Record<string, unknown>>;
+  medicalHistory?: Array<Record<string, unknown>>;
+}
+
+export interface CurrentUserItem {
+  id: string;
+  email: string;
+  role: string;
+  profile?: CurrentUserProfileItem | null;
+}
+
+export async function fetchCurrentUser(token: string) {
+  return apiRequest<CurrentUserItem>("/auth/me", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export interface BookAppointmentPayload {
+  patientId: string;
+  doctorId: string;
+  scheduleId: string;
+  reason?: string;
+}
+
+export async function bookAppointment(payload: BookAppointmentPayload) {
+  return apiRequest<Record<string, unknown>>("/appointments", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchDoctorAppointments(doctorId: string) {
+  return apiRequest<DoctorAppointmentItem[]>(
+    `/appointments/doctor/${doctorId}`,
+  );
+}
+
+export interface NotificationItem {
+  id: string;
+  accountId: string;
+  type: string;
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown> | null;
+  readAt?: string | null;
+  createdAt: string;
+  isRead?: boolean;
+}
+
+export async function fetchNotifications(accountId: string) {
+  return apiRequest<NotificationItem[]>(`/notifications/${accountId}`);
+}
+
+export async function markNotificationAsRead(
+  accountId: string,
+  notificationId: string,
+) {
+  return apiRequest<NotificationItem | null>(
+    `/notifications/${accountId}/${notificationId}/read`,
+    {
+      method: "PATCH",
+    },
+  );
 }
 
 export interface SymptomRecommendationResponse {

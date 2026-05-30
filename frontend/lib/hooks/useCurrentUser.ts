@@ -1,22 +1,18 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "../api";
+import { fetchCurrentUser, type CurrentUserItem } from "../api";
 
 export function useCurrentUser() {
   const token =
     typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
 
-  return useQuery({
+  return useQuery<CurrentUserItem | null>({
     queryKey: ["currentUser"],
     queryFn: async () => {
       if (!token) return null;
 
-      return apiRequest<Record<string, unknown>>("/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      return fetchCurrentUser(token);
     },
     enabled: !!token,
   });
