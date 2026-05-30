@@ -8,6 +8,7 @@ import { PatientModule } from './patient/patient.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { DoctorDiscoveryModule } from './doctor-discovery/doctor-discovery.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DoctorDiscoveryModule } from './doctor-discovery/doctor-discovery.modul
     ScheduleModule,
     AppointmentModule,
     DoctorDiscoveryModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

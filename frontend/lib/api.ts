@@ -155,6 +155,20 @@ export async function fetchDoctors(params: FetchDoctorsParams = {}) {
   });
 }
 
+export interface SymptomRecommendationResponse {
+  recommendedSpecializations: string[];
+}
+
+export async function fetchSymptomRecommendations(symptoms: string) {
+  return apiRequest<SymptomRecommendationResponse>(
+    "/ai/symptoms/recommendations",
+    {
+      method: "POST",
+      body: { symptoms },
+    },
+  );
+}
+
 export interface PatientProfileMedicalHistoryItem {
   condition: string;
 }
