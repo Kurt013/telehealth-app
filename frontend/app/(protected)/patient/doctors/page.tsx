@@ -16,12 +16,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  bookAppointment,
   fetchDoctors,
+  fetchDoctorSchedules,
   fetchSymptomRecommendations,
   type DoctorDiscoveryItem,
+  type DoctorScheduleItem,
 } from "@/lib/api";
 import { ChevronLeft, ChevronRight, Filter, Search } from "lucide-react";
+import { useCurrentPatient } from "@/lib/hooks/useCurrentPatient";
+import { toast } from "sonner";
 
 type DoctorCardData = {
   id: string;
@@ -74,9 +80,11 @@ function getInitials(fullName: string) {
 function DoctorCard({
   doctor,
   isRecommended,
+  onBookNow,
 }: {
   doctor: DoctorCardData;
   isRecommended?: boolean;
+  onBookNow?: (doctor: DoctorCardData) => void;
 }) {
   return (
     <Card className="group border-border/70 bg-card/90 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl">
@@ -138,7 +146,10 @@ function DoctorCard({
       </CardContent>
 
       <CardFooter className="gap-3 pt-0">
-        <Button className="flex-1 rounded-2xl shadow-sm shadow-primary/20">
+        <Button
+          className="flex-1 rounded-2xl shadow-sm shadow-primary/20"
+          onClick={() => onBookNow?.(doctor)}
+        >
           Book Now
         </Button>
       </CardFooter>
@@ -147,6 +158,8 @@ function DoctorCard({
 }
 
 export default function Page() {
+  const patientQuery = useCurrentPatient();
+  const patient = patientQuery.data ?? null;
   const [search, setSearch] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [draftSpecialties, setDraftSpecialties] = useState<string[]>([]);
@@ -159,6 +172,13 @@ export default function Page() {
     string[]
   >([]);
   const [recommendedOpen, setRecommendedOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingDoctor, setBookingDoctor] = useState<DoctorCardData | null>(
+    null,
+  );
+  const [bookingReason, setBookingReason] = useState("");
+  const [selectedScheduleId, setSelectedScheduleId] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
 
   const doctorsQuery = useQuery<DoctorDiscoveryItem[], Error>({
     queryKey: ["doctors"],
@@ -172,6 +192,22 @@ export default function Page() {
     () => (doctorsQuery.data ?? []).map(toCardData),
     [doctorsQuery.data],
   );
+
+  const bookingSchedulesQuery = useQuery<DoctorScheduleItem[], Error>({
+    queryKey: ["doctor-schedules", bookingDoctor?.id],
+    queryFn: () => {
+      if (!bookingDoctor?.id) {
+        return Promise.resolve([]);
+      }
+
+      return fetchDoctorSchedules(bookingDoctor.id, {
+        date: new Date().toISOString(),
+      });
+    },
+    enabled: bookingOpen && !!bookingDoctor?.id,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
+  });
 
   const availableSpecialties = useMemo(() => {
     const counts = new Map<string, number>();
@@ -222,6 +258,13 @@ export default function Page() {
     setFiltersOpen(true);
   }
 
+  function openBookingSheet(doctor: DoctorCardData) {
+    setBookingDoctor(doctor);
+    setBookingReason("");
+    setSelectedScheduleId("");
+    setBookingOpen(true);
+  }
+
   async function analyzeSymptoms() {
     if (!symptomText.trim()) return;
     setAnalyzingSymptoms(true);
@@ -251,6 +294,59 @@ export default function Page() {
   function clearFilters() {
     setDraftSpecialties([]);
     setSelectedSpecialties([]);
+  }
+
+  useEffect(() => {
+    if (bookingSchedulesQuery.data?.length && !selectedScheduleId) {
+      setSelectedScheduleId(bookingSchedulesQuery.data[0].id);
+    }
+  }, [bookingSchedulesQuery.data, selectedScheduleId]);
+
+  async function confirmBooking() {
+    if (!bookingDoctor || !selectedScheduleId) {
+      return;
+    }
+
+    if (!patient?.id) {
+      toast.error("Your patient profile is still loading.");
+      return;
+    }
+
+    setBookingSubmitting(true);
+
+    try {
+      await bookAppointment({
+        patientId: patient.id,
+        doctorId: bookingDoctor.id,
+        scheduleId: selectedScheduleId,
+        reason: bookingReason.trim() || undefined,
+      });
+
+      toast.success("Appointment booked successfully.");
+      setBookingOpen(false);
+      setBookingDoctor(null);
+      setBookingReason("");
+      setSelectedScheduleId("");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to book appointment.",
+      );
+    } finally {
+      setBookingSubmitting(false);
+    }
+  }
+
+  function formatSlotLabel(schedule: DoctorScheduleItem) {
+    return `${new Date(schedule.startTime).toLocaleString([], {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })} - ${new Date(schedule.endTime).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    })}`;
   }
 
   return (
@@ -388,6 +484,7 @@ export default function Page() {
                       key={doctor.id}
                       doctor={doctor}
                       isRecommended={isRec}
+                      onBookNow={openBookingSheet}
                     />
                   );
                 });
@@ -624,6 +721,124 @@ export default function Page() {
                     disabled={recommendedSpecialties.length === 0}
                   >
                     Apply recommendations
+                  </Button>
+                </div>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+          <Sheet open={bookingOpen} onOpenChange={setBookingOpen}>
+            <SheetContent side="right" className="w-full sm:max-w-lg">
+              <SheetHeader className="pb-2">
+                <SheetTitle>Book an appointment</SheetTitle>
+                <SheetDescription>
+                  Choose an available time slot set by the doctor.
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="flex-1 space-y-6 overflow-y-auto px-6 pb-6">
+                <Card className="border-border/70 bg-muted/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Selected doctor
+                  </p>
+                  <p className="mt-1 text-base font-semibold">
+                    {bookingDoctor?.fullName ?? "No doctor selected"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {bookingDoctor?.title ?? ""}
+                  </p>
+                </Card>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-foreground">
+                    Reason for visit
+                  </label>
+                  <Textarea
+                    value={bookingReason}
+                    onChange={(event) => setBookingReason(event.target.value)}
+                    placeholder="Optional: describe your symptoms or what you'd like to discuss"
+                    className="min-h-28 rounded-2xl"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-foreground">
+                      Available time slots
+                    </p>
+                    {bookingSchedulesQuery.isFetching ? (
+                      <span className="text-xs text-muted-foreground">
+                        Loading...
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {bookingSchedulesQuery.isLoading &&
+                  !bookingSchedulesQuery.data ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <Skeleton key={index} className="h-14 rounded-2xl" />
+                      ))}
+                    </div>
+                  ) : bookingSchedulesQuery.data?.length ? (
+                    <div className="space-y-2">
+                      {bookingSchedulesQuery.data.map((schedule) => {
+                        const selected = selectedScheduleId === schedule.id;
+                        return (
+                          <Button
+                            key={schedule.id}
+                            type="button"
+                            variant={selected ? "default" : "outline"}
+                            className="h-auto w-full justify-start rounded-2xl px-4 py-3 text-left"
+                            onClick={() => setSelectedScheduleId(schedule.id)}
+                          >
+                            <div className="flex w-full items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold">
+                                  {formatSlotLabel(schedule)}
+                                </p>
+                                <p className="text-xs opacity-80">
+                                  Time slot available for booking
+                                </p>
+                              </div>
+                              <Badge
+                                variant={selected ? "secondary" : "outline"}
+                                className="rounded-full"
+                              >
+                                {selected ? "Selected" : "Choose"}
+                              </Badge>
+                            </div>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Card className="border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No available schedule slots found for this doctor.
+                    </Card>
+                  )}
+                </div>
+              </div>
+
+              <SheetFooter className="border-t border-border/70 bg-background px-6 py-4">
+                <div className="flex w-full gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-2xl"
+                    onClick={() => setBookingOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 rounded-2xl"
+                    onClick={confirmBooking}
+                    disabled={
+                      bookingSubmitting ||
+                      !bookingDoctor ||
+                      !selectedScheduleId ||
+                      patientQuery.isLoading
+                    }
+                  >
+                    {bookingSubmitting ? "Booking..." : "Confirm booking"}
                   </Button>
                 </div>
               </SheetFooter>
