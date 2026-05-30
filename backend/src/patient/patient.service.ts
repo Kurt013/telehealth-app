@@ -6,6 +6,16 @@ import { UpdatePatientProfileDto } from './dto/update-patient-profile.dto';
 export class PatientService {
   constructor(private prisma: PrismaService) {}
 
+  async findAllPatients() {
+    return this.prisma.patientProfile.findMany({
+      include: {
+        account: true,
+        medicalHistory: true,
+        appointments: true,
+      },
+    });
+  }
+
   async findPatientById(id: string) {
     return this.prisma.patientProfile.findUnique({
       where: { id },

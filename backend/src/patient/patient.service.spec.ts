@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('PatientService', () => {
   let service: PatientService;
   const prismaMock: any = {
-    patientProfile: { findUnique: jest.fn() },
+    patientProfile: { findUnique: jest.fn(), findMany: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -45,5 +45,26 @@ describe('PatientService', () => {
       },
     });
     expect(out).toEqual({ id: 'p1', firstName: 'A' });
+  });
+
+  it('finds all patients', async () => {
+    prismaMock.patientProfile.findMany.mockResolvedValue([
+      { id: 'p1', firstName: 'A' },
+      { id: 'p2', firstName: 'B' },
+    ]);
+
+    const out = await service.findAllPatients();
+
+    expect(prismaMock.patientProfile.findMany).toHaveBeenCalledWith({
+      include: {
+        account: true,
+        medicalHistory: true,
+        appointments: true,
+      },
+    });
+    expect(out).toEqual([
+      { id: 'p1', firstName: 'A' },
+      { id: 'p2', firstName: 'B' },
+    ]);
   });
 });

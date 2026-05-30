@@ -15,6 +15,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PatientController {
   constructor(private readonly patientService: PatientService) {}
 
+  @Get()
+  getAllPatients() {
+    return this.patientService.findAllPatients();
+  }
+
   @Get(':id')
   getPatient(@Param('id') id: string) {
     return this.patientService.findPatientById(id);
