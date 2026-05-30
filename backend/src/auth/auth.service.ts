@@ -10,6 +10,17 @@ import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterDoctorDto } from './dto/register-doctor.dto';
 import { LoginDto } from './dto/login.dto';
 
+type GoogleTokenResponse = {
+  access_token?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  scope?: string;
+  token_type?: string;
+  id_token?: string;
+  error?: string;
+  error_description?: string;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -194,6 +205,60 @@ export class AuthService {
       id: account.id,
       email: account.email,
       role: account.role,
+    };
+  }
+
+  // ------------------------
+  // GOOGLE OAUTH CALLBACK EXCHANGE
+  // ------------------------
+  async exchangeGoogleAuthCode(code: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri =
+      process.env.GOOGLE_REDIRECT_URI ||
+      'http://localhost:3001/auth/google/callback';
+
+    if (!clientId || !clientSecret) {
+      throw new BadRequestException(
+        'Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET',
+      );
+    }
+
+    if (!code || !code.trim()) {
+      throw new BadRequestException('Missing Google authorization code');
+    }
+
+    const params = new URLSearchParams();
+    params.append('client_id', clientId);
+    params.append('client_secret', clientSecret);
+    params.append('code', code.trim());
+    params.append('grant_type', 'authorization_code');
+    params.append('redirect_uri', redirectUri);
+
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+
+    const payload = (await response.json()) as GoogleTokenResponse;
+
+    if (!response.ok) {
+      throw new BadRequestException(
+        payload.error_description ||
+          payload.error ||
+          'Google token exchange failed',
+      );
+    }
+
+    return {
+      accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
+      expiresIn: payload.expires_in,
+      scope: payload.scope,
+      tokenType: payload.token_type,
     };
   }
 }

@@ -5,6 +5,8 @@ import {
   Get,
   UseGuards,
   Request,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterPatientDto } from './dto/register-patient.dto';
@@ -35,5 +37,21 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   getMe(@Request() req: any) {
     return this.authService.getMe(req.user.userId);
+  }
+
+  @Get('google/callback')
+  async googleCallback(
+    @Query('code') code?: string,
+    @Query('error') error?: string,
+  ) {
+    if (error) {
+      throw new BadRequestException(`Google OAuth error: ${error}`);
+    }
+
+    if (!code) {
+      throw new BadRequestException('Missing Google authorization code');
+    }
+
+    return this.authService.exchangeGoogleAuthCode(code);
   }
 }
