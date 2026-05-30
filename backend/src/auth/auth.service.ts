@@ -31,8 +31,13 @@ export class AuthService {
   // ------------------------
   // CREATE ACCOUNT HELPER
   // ------------------------
-  private async createAccount(email: string, password: string, role: any) {
-    const existing = await this.prisma.account.findUnique({
+  private async createAccount(
+    prismaClient: Pick<PrismaService, 'account'>,
+    email: string,
+    password: string,
+    role: any,
+  ) {
+    const existing = await prismaClient.account.findUnique({
       where: { email },
     });
 
@@ -42,7 +47,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    return this.prisma.account.create({
+    return prismaClient.account.create({
       data: {
         email,
         passwordHash,
@@ -55,40 +60,44 @@ export class AuthService {
   // PATIENT SIGNUP
   // ------------------------
   async registerPatient(dto: RegisterPatientDto) {
-    const account = await this.createAccount(
-      dto.email,
-      dto.password,
-      'PATIENT',
-    );
+    return this.prisma.$transaction(async (tx) => {
+      const txAny = tx as any;
+      const account = await this.createAccount(
+        txAny,
+        dto.email,
+        dto.password,
+        'PATIENT',
+      );
 
-    // Filter out empty conditions from the medical history array
-    const conditions = dto.medicalHistory
-      ? dto.medicalHistory.filter((c) => c && c.trim())
-      : [];
+      // Filter out empty conditions from the medical history array
+      const conditions = dto.medicalHistory
+        ? dto.medicalHistory.filter((c) => c && c.trim())
+        : [];
 
-    return this.prisma.patientProfile.create({
-      data: {
-        accountId: account.id,
-        firstName: dto.firstName,
-        middleName: dto.middleName,
-        lastName: dto.lastName,
-        birthday: new Date(dto.birthday),
-        weight: dto.weight ?? null,
-        height: dto.height ?? null,
-        profilePicture: dto.profilePicture,
-        phone: dto.phone,
-        address: dto.address,
-        emergencyName: dto.emergencyName,
-        emergencyPhone: dto.emergencyPhone,
-        medicalHistory: conditions.length
-          ? {
-              create: conditions.map((condition) => ({ condition })),
-            }
-          : undefined,
-      },
-      include: {
-        medicalHistory: true,
-      },
+      return txAny.patientProfile.create({
+        data: {
+          accountId: account.id,
+          firstName: dto.firstName,
+          middleName: dto.middleName,
+          lastName: dto.lastName,
+          birthday: new Date(dto.birthday),
+          weight: dto.weight ?? null,
+          height: dto.height ?? null,
+          profilePicture: dto.profilePicture,
+          phone: dto.phone,
+          address: dto.address,
+          emergencyName: dto.emergencyName,
+          emergencyPhone: dto.emergencyPhone,
+          medicalHistory: conditions.length
+            ? {
+                create: conditions.map((condition) => ({ condition })),
+              }
+            : undefined,
+        },
+        include: {
+          medicalHistory: true,
+        },
+      });
     });
   }
 
@@ -96,35 +105,43 @@ export class AuthService {
   // DOCTOR SIGNUP
   // ------------------------
   async registerDoctor(dto: RegisterDoctorDto) {
-    const account = await this.createAccount(dto.email, dto.password, 'DOCTOR');
+    return this.prisma.$transaction(async (tx) => {
+      const txAny = tx as any;
+      const account = await this.createAccount(
+        txAny,
+        dto.email,
+        dto.password,
+        'DOCTOR',
+      );
 
-    const specializationsCreate =
-      dto.specializations && dto.specializations.length
-        ? dto.specializations.map((name) => ({
-            specialization: {
-              connectOrCreate: {
-                where: { name },
-                create: { name },
+      const specializationsCreate =
+        dto.specializations && dto.specializations.length
+          ? dto.specializations.map((name) => ({
+              specialization: {
+                connectOrCreate: {
+                  where: { name },
+                  create: { name },
+                },
               },
-            },
-          }))
-        : [];
+            }))
+          : [];
 
-    return this.prisma.doctorProfile.create({
-      data: {
-        accountId: account.id,
-        firstName: dto.firstName,
-        middleName: dto.middleName,
-        lastName: dto.lastName,
-        profilePicture: dto.profilePicture,
-        bio: dto.bio,
-        specializations: specializationsCreate.length
-          ? { create: specializationsCreate }
-          : undefined,
-      },
-      include: {
-        specializations: true,
-      },
+      return txAny.doctorProfile.create({
+        data: {
+          accountId: account.id,
+          firstName: dto.firstName,
+          middleName: dto.middleName,
+          lastName: dto.lastName,
+          profilePicture: dto.profilePicture,
+          bio: dto.bio,
+          specializations: specializationsCreate.length
+            ? { create: specializationsCreate }
+            : undefined,
+        },
+        include: {
+          specializations: true,
+        },
+      });
     });
   }
 

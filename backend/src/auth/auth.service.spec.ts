@@ -34,6 +34,13 @@ describe('AuthService', () => {
       doctorProfile: {
         create: jest.fn(),
       },
+      $transaction: jest.fn(async (callback: any) =>
+        callback({
+          account: prisma.account,
+          patientProfile: prisma.patientProfile,
+          doctorProfile: prisma.doctorProfile,
+        }),
+      ),
     };
 
     jwt = {
@@ -83,6 +90,7 @@ describe('AuthService', () => {
 
       const result = await service.registerPatient(dto);
 
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.account.findUnique).toHaveBeenCalledWith({
         where: { email: dto.email },
       });
@@ -138,6 +146,7 @@ describe('AuthService', () => {
 
       const res = await service.registerDoctor(dto);
 
+      expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.account.create).toHaveBeenCalled();
       expect(prisma.doctorProfile.create).toHaveBeenCalledWith(
         expect.objectContaining({
