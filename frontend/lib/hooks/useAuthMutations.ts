@@ -18,7 +18,11 @@ type UserRole = "PATIENT" | "DOCTOR";
 export const useLoginMutation = () => {
   const router = useRouter();
 
-  return useMutation({
+  return useMutation<
+    { accessToken: string; role: string },
+    unknown,
+    LoginInput
+  >({
     mutationFn: (data: LoginInput) => login(data),
 
     onSuccess: (result) => {
@@ -48,7 +52,11 @@ export const useLoginMutation = () => {
 export const useRegisterPatientMutation = () => {
   const router = useRouter();
 
-  return useMutation({
+  return useMutation<
+    unknown,
+    unknown,
+    PatientRegisterInput & { profileFile?: File | null }
+  >({
     mutationFn: async (
       data: PatientRegisterInput & { profileFile?: File | null },
     ) => {
@@ -99,7 +107,7 @@ export const useRegisterPatientMutation = () => {
 export const useRegisterDoctorMutation = () => {
   const router = useRouter();
 
-  return useMutation({
+  return useMutation<unknown, unknown, DoctorRegisterInput>({
     mutationFn: (data: DoctorRegisterInput) => registerDoctor(data),
 
     onSuccess: () => {

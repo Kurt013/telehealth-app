@@ -61,7 +61,7 @@ export async function uploadProfilePicture(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  return apiRequest<Record<string, unknown>>("/upload/uploadImage", {
+  return apiRequest<{ url: string }>("/upload/uploadImage", {
     method: "POST",
     body: formData,
   });
@@ -101,7 +101,7 @@ export interface RegisterDoctorPayload {
 }
 
 export async function login(payload: LoginPayload) {
-  return apiRequest<Record<string, unknown>>("/auth/login", {
+  return apiRequest<{ accessToken: string; role: string }>("/auth/login", {
     method: "POST",
     body: payload,
   });
@@ -152,5 +152,82 @@ export interface FetchDoctorsParams {
 export async function fetchDoctors(params: FetchDoctorsParams = {}) {
   return apiRequest<DoctorDiscoveryItem[]>("/doctors", {
     params,
+  });
+}
+
+export interface PatientProfileMedicalHistoryItem {
+  condition: string;
+}
+
+export interface PatientProfileDoctorSpecializationItem {
+  specialization: {
+    name: string;
+  };
+}
+
+export interface PatientProfileDoctorItem {
+  id: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  profilePicture?: string | null;
+  bio?: string | null;
+  specializations?: PatientProfileDoctorSpecializationItem[];
+}
+
+export interface PatientProfileScheduleItem {
+  id: string;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+}
+
+export interface PatientProfileAppointmentItem {
+  id: string;
+  doctorId: string;
+  scheduleId: string;
+  reason?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  doctor?: PatientProfileDoctorItem;
+  schedule?: PatientProfileScheduleItem;
+  consultationSession?: {
+    meetingLink: string;
+    meetingId?: string | null;
+    calendarEventId?: string | null;
+    status: string;
+    startedAt?: string | null;
+    endedAt?: string | null;
+  } | null;
+}
+
+export interface PatientProfileItem {
+  id: string;
+  accountId: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  birthday: string;
+  profilePicture?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  emergencyName?: string | null;
+  emergencyPhone?: string | null;
+  account?: {
+    id: string;
+    email: string;
+    role: string;
+    isVerified: boolean;
+  };
+  medicalHistory?: PatientProfileMedicalHistoryItem[];
+  appointments?: PatientProfileAppointmentItem[];
+}
+
+export async function fetchCurrentPatient(token: string) {
+  return apiRequest<PatientProfileItem>("/patients/me", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
