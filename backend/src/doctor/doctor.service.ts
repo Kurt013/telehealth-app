@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateDoctorProfileDto } from './dto/update-doctor-profile.dto';
 
 const symptomMap: Record<string, string[]> = {
   fever: ['General Medicine', 'Pediatrics'],
@@ -84,14 +85,106 @@ export class DoctorService {
       include: {
         specializations: { include: { specialization: true } },
         schedules: true,
+        account: true,
       },
     });
+  }
+
+  async findDoctorByAccountId(accountId: string) {
+    return this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+      include: {
+        specializations: { include: { specialization: true } },
+        schedules: true,
+        account: true,
+      },
+    });
+  }
+
+  async updateDoctorProfile(id: string, data: UpdateDoctorProfileDto) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { id },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    const specializations = data.specializations
+      ? Array.from(
+          new Set(data.specializations.filter((name) => name && name.trim())),
+        )
+      : undefined;
+
+    return this.prisma.$transaction(async (tx) => {
+      const txAny = tx as any;
+
+      await txAny.doctorProfile.update({
+        where: { id },
+        data: {
+          firstName: data.firstName,
+          middleName: data.middleName,
+          lastName: data.lastName,
+          profilePicture: data.profilePicture,
+          bio: data.bio,
+        },
+      });
+
+      if (specializations) {
+        await txAny.doctorSpecialization.deleteMany({
+          where: { doctorId: id },
+        });
+
+        for (const name of specializations) {
+          const specialization = await txAny.specialization.upsert({
+            where: { name },
+            create: { name },
+            update: {},
+          });
+
+          await txAny.doctorSpecialization.create({
+            data: {
+              doctorId: id,
+              specializationId: specialization.id,
+            },
+          });
+        }
+      }
+
+      return txAny.doctorProfile.findUnique({
+        where: { id },
+        include: {
+          account: true,
+          specializations: { include: { specialization: true } },
+          schedules: true,
+        },
+      });
+    });
+  }
+
+  async updateDoctorProfileByAccountId(
+    accountId: string,
+    data: UpdateDoctorProfileDto,
+  ) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.updateDoctorProfile(doctor.id, data);
   }
 
   async getSchedules(doctorId: string, from?: string, to?: string) {
     const where: any = {
       doctorId,
-      isBooked: false,
+      appointments: {
+        none: {
+          status: { not: 'CANCELLED' },
+        },
+      },
     };
 
     if (from || to) {
@@ -119,5 +212,17 @@ export class DoctorService {
         startTime: 'asc',
       },
     });
+  }
+
+  async getSchedulesByAccountId(accountId: string, from?: string, to?: string) {
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { accountId },
+    });
+
+    if (!doctor) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return this.getSchedules(doctor.id, from, to);
   }
 }

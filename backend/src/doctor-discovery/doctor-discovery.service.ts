@@ -59,7 +59,13 @@ export class DoctorDiscoveryService {
       include: {
         specializations: { include: { specialization: true } },
         schedules: {
-          where: { isBooked: false },
+          where: {
+            appointments: {
+              none: {
+                status: { not: 'CANCELLED' },
+              },
+            },
+          },
         },
       },
     });
@@ -103,7 +109,15 @@ export class DoctorDiscoveryService {
       },
       include: {
         specializations: { include: { specialization: true } },
-        schedules: { where: { isBooked: false } },
+        schedules: {
+          where: {
+            appointments: {
+              none: {
+                status: { not: 'CANCELLED' },
+              },
+            },
+          },
+        },
       },
     });
 

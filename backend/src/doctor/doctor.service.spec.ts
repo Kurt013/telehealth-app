@@ -44,6 +44,7 @@ describe('DoctorService', () => {
     expect(prismaMock.doctorProfile.findUnique).toHaveBeenCalledWith({
       where: { id: 'd1' },
       include: {
+        account: true,
         specializations: { include: { specialization: true } },
         schedules: true,
       },
