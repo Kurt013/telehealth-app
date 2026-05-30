@@ -2,20 +2,69 @@ export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 ).replace(/\/$/, ""); // Remove trailing slash
 
+type ApiBody = BodyInit | object | null | undefined;
+
+type ApiRequestOptions = Omit<RequestInit, "body"> & {
+  body?: ApiBody;
+  params?: object;
+};
+
+function buildApiUrl(path: string, params?: ApiRequestOptions["params"]) {
+  const url = new URL(`${API_BASE_URL}${path}`);
+
+  for (const [key, value] of Object.entries(
+    (params ?? {}) as Record<string, unknown>,
+  )) {
+    if (value === null || value === undefined || value === "") {
+      continue;
+    }
+
+    url.searchParams.set(key, String(value));
+  }
+
+  return url.toString();
+}
+
+export async function apiRequest<TResponse>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<TResponse> {
+  const headers = new Headers(options.headers);
+  let body: BodyInit | undefined;
+
+  if (options.body instanceof FormData || typeof options.body === "string") {
+    body = options.body;
+  } else if (options.body !== undefined) {
+    body = JSON.stringify(options.body);
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+  }
+
+  const response = await fetch(buildApiUrl(path, options.params), {
+    ...options,
+    headers,
+    body,
+  });
+
+  if (!response.ok) {
+    const errorMessage = await response.text();
+    throw new Error(
+      errorMessage || `Request failed with status ${response.status}`,
+    );
+  }
+
+  return (await response.json()) as TResponse;
+}
+
 export async function uploadProfilePicture(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE_URL}/upload/uploadImage`, {
+  return apiRequest<Record<string, unknown>>("/upload/uploadImage", {
     method: "POST",
     body: formData,
   });
-
-  if (!response.ok) {
-    throw new Error("File upload failed");
-  }
-
-  return response.json();
 }
 
 export interface LoginPayload {
@@ -52,62 +101,56 @@ export interface RegisterDoctorPayload {
 }
 
 export async function login(payload: LoginPayload) {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  return apiRequest<Record<string, unknown>>("/auth/login", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    body: payload,
   });
-
-  if (!response.ok) {
-    throw new Error("Login failed");
-  }
-
-  return response.json();
 }
 
 export async function registerPatient(payload: RegisterPatientPayload) {
   // Remove frontend-only fields that backend doesn't expect
   const { agreeToTerms, ...payloadForBackend } = payload as any;
 
-  const response = await fetch(`${API_BASE_URL}/auth/register/patient`, {
+  return apiRequest<Record<string, unknown>>("/auth/register/patient", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payloadForBackend),
+    body: payloadForBackend,
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(
-      error.message || JSON.stringify(error) || "Registration failed",
-    );
-  }
-
-  return response.json();
 }
 
 export async function registerDoctor(payload: RegisterDoctorPayload) {
   // Remove frontend-only fields that backend doesn't expect
   const { agreeToTerms, ...payloadForBackend } = payload as any;
 
-  const response = await fetch(`${API_BASE_URL}/auth/register/doctor`, {
+  return apiRequest<Record<string, unknown>>("/auth/register/doctor", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payloadForBackend),
+    body: payloadForBackend,
   });
+}
 
-  if (!response.ok) {
-    const error = await response.json();
-    console.error("Registration error:", error);
-    throw new Error(
-      error.message || JSON.stringify(error) || "Registration failed",
-    );
-  }
+export interface DoctorDiscoverySpecialization {
+  specialization: {
+    name: string;
+  };
+}
 
-  return response.json();
+export interface DoctorDiscoveryItem {
+  id: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  profilePicture?: string | null;
+  bio?: string | null;
+  specializations?: DoctorDiscoverySpecialization[];
+}
+
+export interface FetchDoctorsParams {
+  search?: string;
+  specialization?: string;
+  symptom?: string;
+}
+
+export async function fetchDoctors(params: FetchDoctorsParams = {}) {
+  return apiRequest<DoctorDiscoveryItem[]>("/doctors", {
+    params,
+  });
 }
