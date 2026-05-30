@@ -18,6 +18,18 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class DoctorController {
   constructor(private service: DoctorService) {}
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  getMe(@Request() req: any) {
+    return this.service.findDoctorByAccountId(req.user.userId);
+  }
+
+  @Patch('me/profile')
+  @UseGuards(JwtAuthGuard)
+  updateMyProfile(@Request() req: any, @Body() body: UpdateDoctorProfileDto) {
+    return this.service.updateDoctorProfileByAccountId(req.user.userId, body);
+  }
+
   // Discovery (search/filter)
   @Get()
   getDoctors(@Query() query: FindDoctorsDto) {
@@ -43,17 +55,5 @@ export class DoctorController {
   @Patch(':id/profile')
   updateProfile(@Param('id') id: string, @Body() body: UpdateDoctorProfileDto) {
     return this.service.updateDoctorProfile(id, body);
-  }
-
-  @Get('me')
-  @UseGuards(JwtAuthGuard)
-  getMe(@Request() req: any) {
-    return this.service.findDoctorByAccountId(req.user.userId);
-  }
-
-  @Patch('me/profile')
-  @UseGuards(JwtAuthGuard)
-  updateMyProfile(@Request() req: any, @Body() body: UpdateDoctorProfileDto) {
-    return this.service.updateDoctorProfileByAccountId(req.user.userId, body);
   }
 }

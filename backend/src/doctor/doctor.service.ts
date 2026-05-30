@@ -91,7 +91,7 @@ export class DoctorService {
   }
 
   async findDoctorByAccountId(accountId: string) {
-    return this.prisma.doctorProfile.findUnique({
+    let doctor = await this.prisma.doctorProfile.findUnique({
       where: { accountId },
       include: {
         specializations: { include: { specialization: true } },
@@ -99,6 +99,38 @@ export class DoctorService {
         account: true,
       },
     });
+
+    if (!doctor) {
+      const account = await this.prisma.account.findUnique({
+        where: { id: accountId },
+        select: { id: true, email: true, role: true },
+      });
+
+      if (account?.role === 'DOCTOR') {
+        const emailLocal = account.email
+          ? account.email.split('@')[0]
+          : 'doctor';
+
+        const created = await this.prisma.doctorProfile.create({
+          data: {
+            accountId: account.id,
+            firstName: String(emailLocal).slice(0, 50) || 'Doctor',
+            lastName: 'User',
+          },
+          include: {
+            specializations: { include: { specialization: true } },
+            schedules: true,
+            account: true,
+          },
+        });
+
+        doctor = created;
+      } else {
+        throw new NotFoundException('Doctor profile not found');
+      }
+    }
+
+    return doctor;
   }
 
   async updateDoctorProfile(id: string, data: UpdateDoctorProfileDto) {
@@ -166,12 +198,31 @@ export class DoctorService {
     accountId: string,
     data: UpdateDoctorProfileDto,
   ) {
-    const doctor = await this.prisma.doctorProfile.findUnique({
+    let doctor = await this.prisma.doctorProfile.findUnique({
       where: { accountId },
     });
 
     if (!doctor) {
-      throw new NotFoundException('Doctor profile not found');
+      const account = await this.prisma.account.findUnique({
+        where: { id: accountId },
+        select: { id: true, email: true, role: true },
+      });
+
+      if (account?.role === 'DOCTOR') {
+        const emailLocal = account.email
+          ? account.email.split('@')[0]
+          : 'doctor';
+
+        doctor = await this.prisma.doctorProfile.create({
+          data: {
+            accountId: account.id,
+            firstName: String(emailLocal).slice(0, 50) || 'Doctor',
+            lastName: 'User',
+          },
+        });
+      } else {
+        throw new NotFoundException('Doctor profile not found');
+      }
     }
 
     return this.updateDoctorProfile(doctor.id, data);
@@ -215,12 +266,31 @@ export class DoctorService {
   }
 
   async getSchedulesByAccountId(accountId: string, from?: string, to?: string) {
-    const doctor = await this.prisma.doctorProfile.findUnique({
+    let doctor = await this.prisma.doctorProfile.findUnique({
       where: { accountId },
     });
 
     if (!doctor) {
-      throw new NotFoundException('Doctor profile not found');
+      const account = await this.prisma.account.findUnique({
+        where: { id: accountId },
+        select: { id: true, email: true, role: true },
+      });
+
+      if (account?.role === 'DOCTOR') {
+        const emailLocal = account.email
+          ? account.email.split('@')[0]
+          : 'doctor';
+
+        doctor = await this.prisma.doctorProfile.create({
+          data: {
+            accountId: account.id,
+            firstName: String(emailLocal).slice(0, 50) || 'Doctor',
+            lastName: 'User',
+          },
+        });
+      } else {
+        throw new NotFoundException('Doctor profile not found');
+      }
     }
 
     return this.getSchedules(doctor.id, from, to);
